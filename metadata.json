@@ -1,0 +1,6 @@
+{
+  "name": "Freelancer Finance OS",
+  "description": "A comprehensive financial operating system for freelancers combining finance tracking, client & project management, invoices, expense calculation, tax write-offs, and dynamic business insights.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}
