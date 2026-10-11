@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useState } from 'react';
 import {
   DollarSign,
   TrendingUp,
@@ -13,6 +13,13 @@ import {
   ChevronRight,
   Receipt,
   FilePlus,
+  Download,
+  FileSpreadsheet,
+  Users,
+  Check,
+  HardDriveDownload,
+  Calendar,
+  ShieldCheck,
 } from 'lucide-react';
 import {
   Client,
@@ -23,6 +30,13 @@ import {
   ActiveTab,
 } from '../types';
 import { calculateCategoryBreakdowns } from '../utils/calculations';
+import {
+  exportFinancialReportCsv,
+  exportClientsCsv,
+  exportInvoicesCsv,
+  exportExpensesCsv,
+  exportMasterDataBundleCsv,
+} from '../utils/csvExport';
 
 interface DashboardViewProps {
   metrics: FinancialMetrics;
@@ -45,6 +59,9 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
   onOpenAddInvoice,
   onOpenAddExpense,
 }) => {
+  const [lastExported, setLastExported] = useState<string | null>(null);
+  const [isExportMenuOpen, setIsExportMenuOpen] = useState(false);
+
   const categoryBreakdown = calculateCategoryBreakdowns(expenses);
 
   // Recent client payments (paid or sent invoices)
@@ -66,8 +83,50 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
     return projects.find((p) => p.id === projectId)?.title || 'General Deliverable';
   };
 
+  const handleExport = (type: 'financial' | 'clients' | 'invoices' | 'expenses' | 'bundle') => {
+    switch (type) {
+      case 'financial':
+        exportFinancialReportCsv(metrics, invoices, expenses, clients, projects);
+        setLastExported('Financial Performance Report (CSV)');
+        break;
+      case 'clients':
+        exportClientsCsv(clients, projects, invoices);
+        setLastExported('Client Directory & Balances (CSV)');
+        break;
+      case 'invoices':
+        exportInvoicesCsv(invoices, clients, projects);
+        setLastExported('Invoices Ledger (CSV)');
+        break;
+      case 'expenses':
+        exportExpensesCsv(expenses);
+        setLastExported('Business Expenses Ledger (CSV)');
+        break;
+      case 'bundle':
+        exportMasterDataBundleCsv(metrics, clients, projects, invoices, expenses);
+        setLastExported('Complete Financial Master Bundle (CSV)');
+        break;
+    }
+    setIsExportMenuOpen(false);
+    setTimeout(() => {
+      setLastExported(null);
+    }, 4000);
+  };
+
   return (
     <div className="space-y-6">
+      {/* Toast Feedback for CSV Export */}
+      {lastExported && (
+        <div className="fixed bottom-6 right-6 z-50 flex items-center gap-3 rounded-xl border border-emerald-200 bg-white px-4 py-3 shadow-xl shadow-emerald-500/10 transition-all animate-bounce">
+          <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-emerald-500 text-white">
+            <Check className="h-5 w-5" />
+          </div>
+          <div>
+            <div className="text-xs font-bold text-slate-900">CSV Export Complete!</div>
+            <div className="text-[11px] text-slate-500">Saved: {lastExported} locally</div>
+          </div>
+        </div>
+      )}
+
       {/* Dynamic Profit Formula Banner */}
       <div className="relative overflow-hidden rounded-2xl border border-slate-200 bg-gradient-to-r from-slate-900 via-slate-800 to-slate-900 p-6 text-white shadow-lg">
         <div className="absolute -right-8 -top-8 h-40 w-40 rounded-full bg-emerald-500/10 blur-2xl" />
@@ -90,7 +149,7 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
             </p>
           </div>
 
-          <div className="flex flex-wrap items-center gap-2">
+          <div className="flex flex-wrap items-center gap-2 relative">
             <button
               id="dashboard-new-invoice-btn"
               onClick={onOpenAddInvoice}
@@ -107,6 +166,78 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
               <FilePlus className="h-4 w-4 text-emerald-400" />
               <span>Log Expense</span>
             </button>
+
+            {/* Quick Export Dropdown in Banner */}
+            <div className="relative">
+              <button
+                id="dashboard-export-csv-btn"
+                onClick={() => setIsExportMenuOpen(!isExportMenuOpen)}
+                className="flex items-center gap-2 rounded-xl border border-emerald-500/40 bg-emerald-950/60 px-4 py-2.5 text-sm font-medium text-emerald-300 hover:bg-emerald-900/60 hover:text-white transition shadow-sm"
+                title="Export records to CSV"
+              >
+                <Download className="h-4 w-4 text-emerald-400" />
+                <span>Export CSV</span>
+              </button>
+
+              {isExportMenuOpen && (
+                <div className="absolute right-0 top-full mt-2 w-64 rounded-xl border border-slate-700 bg-slate-900 p-2 text-slate-200 shadow-2xl z-50 animate-in fade-in zoom-in-95">
+                  <div className="px-2 py-1.5 text-[10px] font-bold uppercase tracking-wider text-slate-400">
+                    Export Local CSV Files
+                  </div>
+                  <button
+                    onClick={() => handleExport('financial')}
+                    className="flex w-full items-center gap-2.5 rounded-lg px-2.5 py-2 text-xs hover:bg-slate-800 text-left transition"
+                  >
+                    <FileSpreadsheet className="h-4 w-4 text-emerald-400 shrink-0" />
+                    <div>
+                      <div className="font-semibold text-white">Financial Report (P&L)</div>
+                      <div className="text-[10px] text-slate-400">Revenue, expenses, tax reserve</div>
+                    </div>
+                  </button>
+                  <button
+                    onClick={() => handleExport('clients')}
+                    className="flex w-full items-center gap-2.5 rounded-lg px-2.5 py-2 text-xs hover:bg-slate-800 text-left transition"
+                  >
+                    <Users className="h-4 w-4 text-blue-400 shrink-0" />
+                    <div>
+                      <div className="font-semibold text-white">Client Data & Balances</div>
+                      <div className="text-[10px] text-slate-400">Contacts, billing, receivables</div>
+                    </div>
+                  </button>
+                  <button
+                    onClick={() => handleExport('invoices')}
+                    className="flex w-full items-center gap-2.5 rounded-lg px-2.5 py-2 text-xs hover:bg-slate-800 text-left transition"
+                  >
+                    <Receipt className="h-4 w-4 text-amber-400 shrink-0" />
+                    <div>
+                      <div className="font-semibold text-white">Invoices Ledger</div>
+                      <div className="text-[10px] text-slate-400">All paid, sent & overdue invoices</div>
+                    </div>
+                  </button>
+                  <button
+                    onClick={() => handleExport('expenses')}
+                    className="flex w-full items-center gap-2.5 rounded-lg px-2.5 py-2 text-xs hover:bg-slate-800 text-left transition"
+                  >
+                    <CreditCard className="h-4 w-4 text-rose-400 shrink-0" />
+                    <div>
+                      <div className="font-semibold text-white">Expenses & Deductions</div>
+                      <div className="text-[10px] text-slate-400">Operating costs & write-offs</div>
+                    </div>
+                  </button>
+                  <div className="my-1 border-t border-slate-800" />
+                  <button
+                    onClick={() => handleExport('bundle')}
+                    className="flex w-full items-center gap-2.5 rounded-lg bg-emerald-950/70 px-2.5 py-2 text-xs text-emerald-300 hover:bg-emerald-900/80 text-left transition"
+                  >
+                    <HardDriveDownload className="h-4 w-4 text-emerald-400 shrink-0" />
+                    <div>
+                      <div className="font-semibold text-white">Complete Master Bundle</div>
+                      <div className="text-[10px] text-emerald-300">All financial & client data</div>
+                    </div>
+                  </button>
+                </div>
+              )}
+            </div>
           </div>
         </div>
       </div>
@@ -433,6 +564,165 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
               </div>
             );
           })}
+        </div>
+      </div>
+
+      {/* Local Financial Data & CSV Export Center */}
+      <div className="rounded-xl border border-slate-200 bg-white p-6 shadow-xs">
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between border-b border-slate-100 pb-4 gap-3">
+          <div>
+            <div className="flex items-center gap-2">
+              <div className="flex h-7 w-7 items-center justify-center rounded-lg bg-emerald-50 text-emerald-600">
+                <FileSpreadsheet className="h-4 w-4" />
+              </div>
+              <h4 className="text-base font-bold text-slate-900">
+                Local Financial Data & CSV Export Center
+              </h4>
+            </div>
+            <p className="mt-1 text-xs text-slate-500">
+              Export and archive your financial records, client ledgers, and profit calculations directly to standard CSV format.
+            </p>
+          </div>
+
+          <button
+            onClick={() => handleExport('bundle')}
+            className="flex items-center gap-2 rounded-xl bg-slate-900 px-4 py-2.5 text-xs font-semibold text-white hover:bg-slate-800 transition active:scale-95 shadow-xs shrink-0"
+          >
+            <HardDriveDownload className="h-4 w-4 text-emerald-400" />
+            <span>Export Master Bundle (.CSV)</span>
+          </button>
+        </div>
+
+        {/* Export Cards Grid */}
+        <div className="mt-5 grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
+          {/* Card 1: Financial Report */}
+          <div className="flex flex-col justify-between rounded-xl border border-slate-100 bg-slate-50/70 p-4 transition hover:border-emerald-200 hover:bg-white hover:shadow-xs">
+            <div>
+              <div className="flex items-center justify-between">
+                <span className="flex h-8 w-8 items-center justify-center rounded-lg bg-emerald-100/70 text-emerald-700">
+                  <TrendingUp className="h-4 w-4" />
+                </span>
+                <span className="rounded-full bg-slate-200/80 px-2 py-0.5 text-[10px] font-medium text-slate-700">
+                  P&L Summary
+                </span>
+              </div>
+              <h5 className="mt-3 text-sm font-bold text-slate-900">
+                Financial Performance (P&L)
+              </h5>
+              <p className="mt-1 text-xs text-slate-500 leading-relaxed">
+                Includes Gross Revenue (${metrics.grossRevenue.toLocaleString()}), Net Profit (${metrics.netProfit.toLocaleString()}), tax reserve, and category breakdowns.
+              </p>
+            </div>
+
+            <button
+              id="export-financial-report-btn"
+              onClick={() => handleExport('financial')}
+              className="mt-4 flex w-full items-center justify-center gap-2 rounded-lg border border-emerald-300 bg-emerald-50/80 px-3 py-2 text-xs font-semibold text-emerald-800 hover:bg-emerald-100 transition active:scale-95"
+            >
+              <Download className="h-3.5 w-3.5" />
+              <span>Download Report (.CSV)</span>
+            </button>
+          </div>
+
+          {/* Card 2: Client Data */}
+          <div className="flex flex-col justify-between rounded-xl border border-slate-100 bg-slate-50/70 p-4 transition hover:border-blue-200 hover:bg-white hover:shadow-xs">
+            <div>
+              <div className="flex items-center justify-between">
+                <span className="flex h-8 w-8 items-center justify-center rounded-lg bg-blue-100/70 text-blue-700">
+                  <Users className="h-4 w-4" />
+                </span>
+                <span className="rounded-full bg-slate-200/80 px-2 py-0.5 text-[10px] font-medium text-slate-700">
+                  {clients.length} Clients
+                </span>
+              </div>
+              <h5 className="mt-3 text-sm font-bold text-slate-900">
+                Client Directory & Balances
+              </h5>
+              <p className="mt-1 text-xs text-slate-500 leading-relaxed">
+                Full roster of clients, contacts, active project counts, total billing, and outstanding/overdue balances.
+              </p>
+            </div>
+
+            <button
+              id="export-clients-btn"
+              onClick={() => handleExport('clients')}
+              className="mt-4 flex w-full items-center justify-center gap-2 rounded-lg border border-blue-300 bg-blue-50/80 px-3 py-2 text-xs font-semibold text-blue-800 hover:bg-blue-100 transition active:scale-95"
+            >
+              <Download className="h-3.5 w-3.5" />
+              <span>Download Clients (.CSV)</span>
+            </button>
+          </div>
+
+          {/* Card 3: Invoices */}
+          <div className="flex flex-col justify-between rounded-xl border border-slate-100 bg-slate-50/70 p-4 transition hover:border-amber-200 hover:bg-white hover:shadow-xs">
+            <div>
+              <div className="flex items-center justify-between">
+                <span className="flex h-8 w-8 items-center justify-center rounded-lg bg-amber-100/70 text-amber-700">
+                  <Receipt className="h-4 w-4" />
+                </span>
+                <span className="rounded-full bg-slate-200/80 px-2 py-0.5 text-[10px] font-medium text-slate-700">
+                  {invoices.length} Invoices
+                </span>
+              </div>
+              <h5 className="mt-3 text-sm font-bold text-slate-900">
+                Invoices & Receivables
+              </h5>
+              <p className="mt-1 text-xs text-slate-500 leading-relaxed">
+                Itemized payment schedule with invoice numbers, amounts, due dates, paid dates, and terms for accounting.
+              </p>
+            </div>
+
+            <button
+              id="export-invoices-btn"
+              onClick={() => handleExport('invoices')}
+              className="mt-4 flex w-full items-center justify-center gap-2 rounded-lg border border-amber-300 bg-amber-50/80 px-3 py-2 text-xs font-semibold text-amber-800 hover:bg-amber-100 transition active:scale-95"
+            >
+              <Download className="h-3.5 w-3.5" />
+              <span>Download Invoices (.CSV)</span>
+            </button>
+          </div>
+
+          {/* Card 4: Expenses */}
+          <div className="flex flex-col justify-between rounded-xl border border-slate-100 bg-slate-50/70 p-4 transition hover:border-rose-200 hover:bg-white hover:shadow-xs">
+            <div>
+              <div className="flex items-center justify-between">
+                <span className="flex h-8 w-8 items-center justify-center rounded-lg bg-rose-100/70 text-rose-700">
+                  <CreditCard className="h-4 w-4" />
+                </span>
+                <span className="rounded-full bg-slate-200/80 px-2 py-0.5 text-[10px] font-medium text-slate-700">
+                  {expenses.length} Records
+                </span>
+              </div>
+              <h5 className="mt-3 text-sm font-bold text-slate-900">
+                Expenses & Tax Deductions
+              </h5>
+              <p className="mt-1 text-xs text-slate-500 leading-relaxed">
+                Itemized expenditures by category (Software, Equipment, Travel, etc.) with tax-deductible markers and vendors.
+              </p>
+            </div>
+
+            <button
+              id="export-expenses-btn"
+              onClick={() => handleExport('expenses')}
+              className="mt-4 flex w-full items-center justify-center gap-2 rounded-lg border border-rose-300 bg-rose-50/80 px-3 py-2 text-xs font-semibold text-rose-800 hover:bg-rose-100 transition active:scale-95"
+            >
+              <Download className="h-3.5 w-3.5" />
+              <span>Download Expenses (.CSV)</span>
+            </button>
+          </div>
+        </div>
+
+        {/* Footer info banner */}
+        <div className="mt-4 flex flex-col sm:flex-row items-start sm:items-center justify-between rounded-lg bg-slate-50 px-3.5 py-2.5 text-xs text-slate-500 gap-2 border border-slate-100">
+          <div className="flex items-center gap-2">
+            <ShieldCheck className="h-4 w-4 text-emerald-600 shrink-0" />
+            <span>
+              <strong>Local & Private:</strong> CSV exports are processed in-memory directly on your browser. Compatible with Microsoft Excel, Apple Numbers, and Google Sheets.
+            </span>
+          </div>
+          <span className="text-[11px] text-slate-400 shrink-0">
+            UTF-8 RFC-4180 format
+          </span>
         </div>
       </div>
     </div>
